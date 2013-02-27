@@ -2,6 +2,8 @@ import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment
 import Control.Monad
 import Numeric
+import Data.Ratio
+import Data.Complex
 
 data LispVal =	Atom String
 		| List [LispVal]
@@ -9,6 +11,10 @@ data LispVal =	Atom String
 		| Number Integer
 		| String String
 		| Bool Bool
+		| Character Char
+		| Float Double
+		| Ratio Rational
+		| Complex (Complex Double)
 		deriving (Show)
 
 main = do
@@ -35,6 +41,14 @@ parseBool = do string "#"
                return $ case x of
                         't' -> Bool True
                         'f' -> Bool False
+
+parseCharacter = do try $ string "#\\"
+                    val <- try (string "newline" <|> string "space")
+                           <|> do {x <- anyChar; notFollowedBy alphaNum; return [x]}
+                    return $ Character $ case val of
+                                         "space" -> ' '
+                                         "newline" -> '\n'
+                                         otherwise -> (val !! 0)
 
 parseString = do char '"'
                  x <- many (escChars <|> noneOf "\"\\")
@@ -78,6 +92,7 @@ bin2dig = bin2dig' 0
 bin2dig' digint "" = digint
 bin2dig' digint (x:xs) = let old = 2 * digint + (if x == '0' then 0 else 1)
                          in bin2dig' old xs
+
 --parseNumber = liftM (Number . read) $ many1 digit
 
 --parseNumber = do num <- many1 digit
@@ -85,10 +100,34 @@ bin2dig' digint (x:xs) = let old = 2 * digint + (if x == '0' then 0 else 1)
 
 --parseNumber = many1 digit >>= (\num -> return . Number $ read num)
 
+parseFloat = do x <- many1 digit
+                char '.'
+                y <- many1 digit
+                return $ Float (fst . head $ readFloat (x ++ "." ++ y))
+
+parseRatio :: Parser LispVal
+parseRatio = do x <- many1 digit
+                char '/'
+                y <- many1 digit
+                return $ Ratio ((read x) % (read y))
+
+parseComplex = do x <- (try parseFloat <|> parseRatio)
+                  char '+'
+                  y <- (try parseFloat <|> parseRatio)
+                  char 'i'
+                  return $ Complex (toDouble x :+ toDouble y)
+
+toDouble (Float f) = f
+toDouble (Number n) = fromIntegral n
+
 parseExpr = parseAtom
         <|> parseString
-	<|> parseNumber
-	<|> parseBool		
+	<|> try parseComplex
+	<|> try parseFloat
+	<|> try parseRatio
+	<|> try parseNumber
+	<|> try parseBool
+	<|> try parseCharacter
 
 readExpr input = case parse parseExpr "lisp" input of
 		Left err -> "No Match: " ++ show err
