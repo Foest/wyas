@@ -128,6 +128,36 @@ parseExpr = parseAtom
 	<|> try parseNumber
 	<|> try parseBool
 	<|> try parseCharacter
+	<|> parseQuoted
+	<|> parseQuasiQuoted
+	<|> parseUnQuote
+	<|> do char '('
+               x <- try parseList <|> parseDottedList
+               char ')'
+               return x
+
+parseList = liftM List $ sepBy parseExpr spaces
+
+parseDottedList = do
+    head <- endBy parseExpr spaces
+    tail <- char '.' >> spaces >> parseExpr
+    return $ DottedList head tail
+
+parseQuoted = do
+    char '\''
+    x <- parseExpr
+    return $ List [Atom "Quote", x]
+
+parseQuasiQuoted = do 
+    char '`'
+    x <- parseExpr
+    return $ List [Atom "quasiquote" , x]
+
+parseUnQuote = do
+    char ','
+    x <- parseExpr
+    return $ List[Atom "unquote", x]
+    
 
 readExpr input = case parse parseExpr "lisp" input of
 		Left err -> "No Match: " ++ show err
