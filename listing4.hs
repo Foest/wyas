@@ -15,7 +15,27 @@ data LispVal =	Atom String
 		| Float Double
 		| Ratio Rational
 		| Complex (Complex Double)
-		deriving (Show)
+
+instance Show LispVal where show = showVal
+
+showVal :: LispVal -> String
+--HFW addition
+showVal (Character char) = "#\\" ++ [char]
+--HFW addition
+showVal (Complex contents) = show contents
+--HFW addition
+showVal (Float contents) = show contents
+--HFW addition
+showVal (Ratio contents) = show contents
+showVal (String contents) = "\"" ++ contents ++ "\""
+showVal (Atom name) = name
+showVal (Number contents) = show contents
+showVal (Bool True) = "#t"
+showVal (Bool False) = "#t"
+showVal (List contents) = "(" ++ unwordsList contents ++ ")"
+showVal (DottedList head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tail ++ ")"
+
+unwordsList = unwords . map showVal
 
 main = do
 	args <- getArgs
@@ -119,6 +139,8 @@ parseComplex = do x <- (try parseFloat <|> parseRatio)
 
 toDouble (Float f) = f
 toDouble (Number n) = fromIntegral n
+--HFW addition
+toDouble (Ratio r) = fromRational r
 
 parseExpr = parseAtom
         <|> parseString
@@ -158,7 +180,15 @@ parseUnQuote = do
     x <- parseExpr
     return $ List[Atom "unquote", x]
     
+--------begin evaluator--------
 
+eval :: LispVal -> LispVal
+eval val@(String _) = val
+eval val@(Number _) = val
+eval val@(Bool _) = val
+eval (List [Atom "quote", val]) = val
+
+--------end evaluator--------
 readExpr input = case parse parseExpr "lisp" input of
 		Left err -> "No Match: " ++ show err
-		Right _ -> "Found value"
+		Right val -> "Found " ++ show val
