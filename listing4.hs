@@ -37,9 +37,7 @@ showVal (DottedList head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tai
 
 unwordsList = unwords . map showVal
 
-main = do
-	args <- getArgs
-	putStrLn (readExpr $ args !! 0)
+main = getArgs >>= print . eval . readExpr . head
 
 symbol = oneOf "!$%&|*+-/<=>?@^_~"
 
@@ -108,7 +106,7 @@ parseBin = do try $ string "#b"
 
 oct2dig x = fst $ readOct x !! 0
 hex2dig x = fst $ readHex x !! 0
-bin2dig = bin2dig' 0 
+bin2dig = bin2dig' 0
 bin2dig' digint "" = digint
 bin2dig' digint (x:xs) = let old = 2 * digint + (if x == '0' then 0 else 1)
                          in bin2dig' old xs
@@ -168,9 +166,9 @@ parseDottedList = do
 parseQuoted = do
     char '\''
     x <- parseExpr
-    return $ List [Atom "Quote", x]
+    return $ List [Atom "quote", x]
 
-parseQuasiQuoted = do 
+parseQuasiQuoted = do
     char '`'
     x <- parseExpr
     return $ List [Atom "quasiquote" , x]
@@ -179,7 +177,7 @@ parseUnQuote = do
     char ','
     x <- parseExpr
     return $ List[Atom "unquote", x]
-    
+
 --------begin evaluator--------
 
 eval :: LispVal -> LispVal
@@ -187,10 +185,50 @@ eval val@(String _) = val
 eval val@(Number _) = val
 eval val@(Bool _) = val
 eval (List [Atom "quote", val]) = val
+eval (List (Atom func : args)) = apply func $ map eval args
+
+apply :: String -> [LispVal] -> LispVal
+apply func args = maybe (Bool False) ($ args) $ lookup func primitives
+
+primitives = [("+", numericBinop (+)),
+              ("-", numericBinop (-)),
+              ("*", numericBinop (*)),
+              ("/", numericBinop div),
+              ("mod", numericBinop mod),
+              ("quotient", numericBinop quot),
+              ("remainder", numericBinop rem),
+              ("symbol?", unaryOp symbolp),
+              ("string?", unaryOp stringp),
+              ("number?", unaryOp numberp),
+              ("bool?", unaryOp boolp),
+              ("list?", unaryOp listp)]
+
+unaryOp f [v] = f v
+
+symbolp (Atom _) = Bool True
+symbolp _ = Bool False
+numberp (Number _) = Bool True
+numberp _ = Bool False
+stringp (String _) = Bool True
+stringp _ = Bool False
+boolp (Bool _) = Bool True
+boolp _ = Bool False
+listp (List _) = Bool True
+listp (DottedList _ _) = Bool True
+listp _ = Bool False
+
+numericBinop op params = Number $ foldl1 op $ map unpackNum params
+
+unpackNum (Number n) = n
+unpackNum _ = 0
+
+symbol2string (Atom s) = String s
+symbol2string _ = String ""
+string2symbol (String s) = Atom s
+string2symbol _ = Atom ""
 
 --------end evaluator--------
 
 readExpr input = case parse parseExpr "lisp" input of
-		Left err -> "No Match: " ++ show err
-		Right val -> "Found " ++ show val
-
+		Left err -> String $ "No Match: " ++ show err
+		Right val -> val
