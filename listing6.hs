@@ -1,3 +1,4 @@
+
 import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment
 import Control.Monad
@@ -5,6 +6,11 @@ import Numeric
 import Data.Ratio
 import Data.Complex
 import Control.Monad.Error
+
+main = do
+    args <- getArgs
+    evaled <- return $ liftM show $ readExpr (args !! 0) >>= eval
+    putStrLn $ extractValue $ trapError evaled
 
 data LispVal =	Atom String
 		| List [LispVal]
