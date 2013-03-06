@@ -44,10 +44,7 @@ showVal (DottedList head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tai
 
 unwordsList = unwords . map showVal
 
-main = do
-    args <- getArgs
-    evaled <- return $ liftM show $ readExpr (args !! 0) >>= eval
-    putStrLn $ extractValue $ trapError evaled
+data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
 
 symbol = oneOf "!$%&|*+-/<=>?@^_~"
 
