@@ -22,7 +22,7 @@ data LispVal =	Atom String
 		| Float Double
 		| Ratio Rational
 		| Complex (Complex Double)
-
+                deriving (Eq)
 instance Show LispVal where show = showVal
 
 showVal :: LispVal -> String
@@ -217,14 +217,15 @@ eval form@(List (Atom "case" : key : clauses)) =
     List (Atom "else" : exprs) -> mapM eval exprs >>= return . last
     List ((List datums) : exprs) -> do
       result <- eval key
-      equality <- mapM (x -> eqv [result, x]) datums
-      if Boolean True `elem` equality
+      equality <- mapM (\x -> eqv [result, x]) datums
+      if Bool True `elem` equality
         then mapM eval exprs >>= return . last
-        else eval $ List (Atom "case" : key : tail clauses
+        else eval $ List (Atom "case" : key : tail clauses)
     _ -> throwError $ BadSpecialForm "ill-formed case expression:" form
 
 eval (List (Atom func : args)) = mapM eval args >>= apply func
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form " badForm
+
 
 
 apply :: String -> [LispVal] -> ThrowsError LispVal
