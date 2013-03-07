@@ -201,7 +201,7 @@ eval (List [Atom "if", pred, conseq, alt]) =
          Bool False -> eval alt
          otherwise -> eval conseq
 -}
-
+--evaluation of if expression
 eval (List [Atom "if", pred, conseq, alt]) =
     do result <- eval pred
        case result of
@@ -209,6 +209,7 @@ eval (List [Atom "if", pred, conseq, alt]) =
          Bool True -> eval conseq
          _ -> throwError $ TypeMismatch "bool" pred
 
+--evaluation of case expression
 eval form@(List (Atom "case" : key : clauses)) =
   if null clauses
   then throwError $ BadSpecialForm "no true clauses in case expression" form
