@@ -192,11 +192,22 @@ eval val@(String _) = return val
 eval val@(Number _) = return val
 eval val@(Bool _) = return val
 eval (List [Atom "quote", val]) = return val
+
+{-
+ - anything but False evaluates to True
 eval (List [Atom "if", pred, conseq, alt]) =
     do result <- eval pred
        case result of
          Bool False -> eval alt
          otherwise -> eval conseq
+-}
+
+eval (List [Atom "if", pred, conseq, alt]) =
+    do result <- eval pred
+       case result of
+         Bool False -> eval alt
+         Bool True -> eval conseq
+         _ -> throwError $ TypeMismatch "bool" pred
 eval (List (Atom func : args)) = mapM eval args >>= apply func
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form " badForm
 
