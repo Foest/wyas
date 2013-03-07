@@ -421,6 +421,27 @@ extractValue (Right val) = val
 
 --------end error checking--------
 
+
+--------begin REPL--------
+runRepl = until_ (== "quit") (readPrompt "Lisp>>> ") evalAndPrint
+
+--REPL helper functions
+flushStr str = putStr str >> hFlush stdout
+
+readPrompt prompt = flushStr prompt >> getLine
+
+evalString expr = return $ extractValue $ trapError (liftM show $ readExpr expr >>= eval)
+
+evalAndPrint expr = evalString expr >>= putStrLn
+
+until_ pred prompt action = do
+  result <- prompt
+  if pred result
+    then return ()
+    else action result >> until_ pred prompt action
+
+--------end REPL--------
+
 readExpr input = case parse parseExpr "lisp" input of
 		Left err -> throwError $ Parser err
 		Right val -> return val
