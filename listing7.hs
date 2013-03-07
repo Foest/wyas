@@ -6,11 +6,13 @@ import Numeric
 import Data.Ratio
 import Data.Complex
 import Control.Monad.Error
+import System.IO
 
-main = do
-    args <- getArgs
-    evaled <- return $ liftM show $ readExpr (args !! 0) >>= eval
-    putStrLn $ extractValue $ trapError evaled
+main = do args <- getArgs
+          case length args of
+            0 -> runRepl
+            1 -> evalAndPrint $ args !! 0
+            otherwise -> putStrLn "Program takes only 0 or 1 argument"
 
 data LispVal =	Atom String
 		| List [LispVal]
