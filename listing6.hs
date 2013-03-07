@@ -208,6 +208,20 @@ eval (List [Atom "if", pred, conseq, alt]) =
          Bool False -> eval alt
          Bool True -> eval conseq
          _ -> throwError $ TypeMismatch "bool" pred
+
+eval form@(List (Atom "case" : key : clauses)) =
+  if null clauses
+  then throwError $ BadSpecialForm "no true clauses in case expression" form
+  else case head clauses of
+    List (Atom "else" : exprs) -> mapM eval exprs >>= return . last
+    List ((List datums) : exprs) -> do
+      result <- eval key
+      equality <- mapM (x -> eqv [result, x]) datums
+      if Boolean True `elem` equality
+        then mapM eval exprs >>= return . last
+        else eval $ List (Atom "case" : key : tail clauses
+    _ -> throwError $ BadSpecialForm "ill-formed case expression:" form
+
 eval (List (Atom func : args)) = mapM eval args >>= apply func
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form " badForm
 
