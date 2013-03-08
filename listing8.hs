@@ -50,7 +50,7 @@ showVal (DottedList head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tai
 
 unwordsList = unwords . map showVal
 
-data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
+data Unpacker = forall a . Eq a => AnyUnpacker (LispVal -> ThrowsError a)
 
 symbol = oneOf "!$%&|*+-/<=>?@^_~"
 
@@ -98,6 +98,16 @@ parseAtom = do first <- letter <|> symbol
 parseNumber = do num <- parseDigital1 <|> parseDigital2 <|> parseHex <|> parseOct <|> parseBin
                  return $ num
 
+{-
+--different versions of parseNumber
+parseNumber = liftM (Number . read) $ many1 digit
+
+parseNumber = do num <- many1 digit
+                 return $ Number (read num)
+
+parseNumber = many1 digit >>= (\num -> return . Number $ read num)
+-}
+
 parseDigital1 = do x <- many1 digit
                    (return . Number . read) x
 
@@ -123,13 +133,6 @@ bin2dig = bin2dig' 0
 bin2dig' digint "" = digint
 bin2dig' digint (x:xs) = let old = 2 * digint + (if x == '0' then 0 else 1)
                          in bin2dig' old xs
-
---parseNumber = liftM (Number . read) $ many1 digit
-
---parseNumber = do num <- many1 digit
---                 return $ Number (read num)
-
---parseNumber = many1 digit >>= (\num -> return . Number $ read num)
 
 parseFloat = do x <- many1 digit
                 char '.'
@@ -199,14 +202,6 @@ eval val@(Number _) = return val
 eval val@(Bool _) = return val
 eval (List [Atom "quote", val]) = return val
 
-{-
- - anything but False evaluates to True
-eval (List [Atom "if", pred, conseq, alt]) =
-    do result <- eval pred
-       case result of
-         Bool False -> eval alt
-         otherwise -> eval conseq
--}
 --evaluation of if expression
 eval (List [Atom "if", pred, conseq, alt]) =
     do result <- eval pred
@@ -242,8 +237,6 @@ eval form@(List (Atom "cond" : clauses)) =
     _ -> throwError $ BadSpecialForm "ill-formed cond expression:" form
 eval (List (Atom func : args)) = mapM eval args >>= apply func
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form " badForm
-
-
 
 apply :: String -> [LispVal] -> ThrowsError LispVal
 apply func args = maybe (throwError $ NotFunction "Unrecognized primitive function args " func)
@@ -288,12 +281,16 @@ unaryOp _ _ = throwError $ Default "unaryOp Error"
 
 symbolp (Atom _) = Bool True
 symbolp _ = Bool False
+
 numberp (Number _) = Bool True
 numberp _ = Bool False
+
 stringp (String _) = Bool True
 stringp _ = Bool False
+
 boolp (Bool _) = Bool True
 boolp _ = Bool False
+
 listp (List _) = Bool True
 listp (DottedList _ _) = Bool True
 listp _ = Bool False
@@ -309,7 +306,9 @@ boolBinop unpacker op args = if length args /= 2
                                      return $ Bool $ left `op` right
 
 numBoolBinop = boolBinop unpackNum
+
 strBoolBinop = boolBinop unpackStr
+
 boolBoolBinop = boolBinop unpackBool
 
 unpackNum (Number n) = return n
@@ -357,6 +356,7 @@ eqv [(String arg1), (String arg2)] = return $ Bool $ arg1 == arg2
 eqv [(Atom arg1), (Atom arg2)] = return $ Bool $ arg1 == arg2
 eqv [(DottedList xs x), (DottedList ys y)] = eqv [List $ xs ++ [x], List $ ys ++ [y]]
 eqv [l1@(List arg1), l2@(List arg2)] = eqvList eqv [l1, l2]
+
 {-
 eqv [(List arg1), (List arg2)] = return $ Bool $ (length arg1 == length arg2) &&
                                                     (all eqvPair $ zip arg1 arg2)
@@ -364,6 +364,7 @@ eqv [(List arg1), (List arg2)] = return $ Bool $ (length arg1 == length arg2) &&
                                Left err -> False
                                Right (Bool val) -> val
 -}
+
 eqv [_, _] = return $ Bool False
 eqv badArgList = throwError $ NumArgs 2 badArgList
 
@@ -387,7 +388,6 @@ unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
                 unpacked2 <- unpacker arg2
                 return $ unpacked1 == unpacked2
         `catchError` (const $ return False)
-
 
 --------end evaluator--------
 
@@ -423,12 +423,11 @@ trapError action = catchError action (return . show)
 
 extractValue (Right val) = val
 
-
-
 --------end error checking--------
 
 
 --------begin REPL--------
+
 runRepl = until_ (== "quit") (readPrompt "Lisp>>> ") evalAndPrint
 
 --REPL helper functions
@@ -447,4 +446,3 @@ until_ pred prompt action = do
     else action result >> until_ pred prompt action
 
 --------end REPL--------
-
