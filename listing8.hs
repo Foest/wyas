@@ -14,6 +14,10 @@ main = do args <- getArgs
             1 -> evalAndPrint $ args !! 0
             otherwise -> putStrLn "Program takes only 0 or 1 argument"
 
+readExpr input = case parse parseExpr "lisp" input of
+		Left err -> throwError $ Parser err
+		Right val -> return val
+
 data LispVal =	Atom String
 		| List [LispVal]
 		| DottedList [LispVal] LispVal
@@ -444,6 +448,3 @@ until_ pred prompt action = do
 
 --------end REPL--------
 
-readExpr input = case parse parseExpr "lisp" input of
-		Left err -> throwError $ Parser err
-		Right val -> return val
