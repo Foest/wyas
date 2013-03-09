@@ -94,7 +94,6 @@ parseAtom = do first <- letter <|> symbol
                         "#f" -> Bool False
                         _    -> Atom atom
 
-
 parseNumber = do num <- parseDigital1 <|> parseDigital2 <|> parseHex <|> parseOct <|> parseBin
                  return $ num
 
