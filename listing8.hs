@@ -244,47 +244,58 @@ parseUnQuote = do
 
 --------begin evaluator--------
 
-eval :: LispVal -> ThrowsError LispVal
-eval val@(String _) = return val
-eval val@(Number _) = return val
-eval val@(Bool _) = return val
-eval (List [Atom "quote", val]) = return val
+eval :: Env -> LispVal -> IOThrowsError LispVal
+eval env val@(String _) = return val
+eval env val@(Number _) = return val
+eval env val@(Bool _) = return val
+eval env (Atom id) = getVar env id
+eval env (List [Atom "quote", val]) = return val
 
 --evaluation of if expression
-eval (List [Atom "if", pred, conseq, alt]) =
-    do result <- eval pred
+eval env (List [Atom "if", pred, conseq, alt]) =
+    do result <- eval env pred
        case result of
-         Bool False -> eval alt
-         Bool True -> eval conseq
+         Bool False -> eval env alt
+         Bool True -> eval env conseq
          _ -> throwError $ TypeMismatch "bool" pred
 
+eval env (List [Atom "set!", Atom var, form]) =
+    eval env form >>= setVar env var
+
+eval env (List [Atom "define", Atom var, form]) =
+    eval env form >>= defineVar env var
+
+{-
 --evaluation of case expression
-eval form@(List (Atom "case" : key : clauses)) =
+eval env form@(List (Atom "case" : key : clauses)) =
   if null clauses
   then throwError $ BadSpecialForm "no true clauses in case expression" form
   else case head clauses of
-    List (Atom "else" : exprs) -> mapM eval exprs >>= return . last
+    List (Atom "else" : exprs) -> mapM (eval env) exprs >>= return . last
     List ((List datums) : exprs) -> do
-      result <- eval key
+      result <- eval env key
       equality <- mapM (\x -> eqv [result, x]) datums
       if Bool True `elem` equality
-        then mapM eval exprs >>= return . last
-        else eval $ List (Atom "case" : key : tail clauses)
+        then mapM (eval env) exprs >>= return . last
+        else (eval env) $ List (Atom "case" : key : tail clauses)
     _ -> throwError $ BadSpecialForm "ill-formed case expression:" form
+-}
 
 --evaluation of cond expression
-eval form@(List (Atom "cond" : clauses)) =
+eval env form@(List (Atom "cond" : clauses)) =
   if null clauses
   then throwError $ BadSpecialForm "no true clause in cond expression:" form
   else case head clauses of
-    List [Atom "else", expr] -> eval expr
-    List [test, expr] -> eval $ List [Atom "if",
+    List [Atom "else", expr] -> eval env expr
+    List [test, expr] -> (eval env) $ List [Atom "if",
                                       test,
                                       expr,
                                       List (Atom "cond" : tail clauses)]
     _ -> throwError $ BadSpecialForm "ill-formed cond expression:" form
-eval (List (Atom func : args)) = mapM eval args >>= apply func
-eval badForm = throwError $ BadSpecialForm "Unrecognized special form " badForm
+eval env (List (Atom func : args)) = mapM (eval env) args >>= liftThrows . apply func
+eval env badForm = throwError $ BadSpecialForm "Unrecognized special form " badForm
+
+
 
 apply :: String -> [LispVal] -> ThrowsError LispVal
 apply func args = maybe (throwError $ NotFunction "Unrecognized primitive function args " func)
