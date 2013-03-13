@@ -12,7 +12,7 @@ import Data.IORef
 main = do args <- getArgs
           case length args of
             0 -> runRepl
-            1 -> evalAndPrint $ args !! 0
+            1 -> runOne $ args !! 0
             otherwise -> putStrLn "Program takes only 0 or 1 argument"
 
 readExpr input = case parse parseExpr "lisp" input of
@@ -487,16 +487,19 @@ extractValue (Right val) = val
 
 --------begin REPL--------
 
-runRepl = until_ (== "quit") (readPrompt "Lisp>>> ") evalAndPrint
+runRepl = nullEnv >>= until_ (== "quit") (readPrompt "Lisp>>> ") . evalAndPrint
+
+runOne expr = nullEnv >>= flip evalAndPrint expr
 
 --REPL helper functions
 flushStr str = putStr str >> hFlush stdout
 
 readPrompt prompt = flushStr prompt >> getLine
 
-evalString expr = return $ extractValue $ trapError (liftM show $ readExpr expr >>= eval)
+evalString :: Env -> String -> IO String
+evalString env expr = runIOThrows $ liftM show $ (liftThrows $ readExpr expr) >>= eval env
 
-evalAndPrint expr = evalString expr >>= putStrLn
+evalAndPrint env expr = evalString env expr >>= putStrLn
 
 until_ pred prompt action = do
   result <- prompt
