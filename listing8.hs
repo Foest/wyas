@@ -7,6 +7,7 @@ import Data.Ratio
 import Data.Complex
 import Control.Monad.Error
 import System.IO
+import Data.IORef
 
 main = do args <- getArgs
           case length args of
