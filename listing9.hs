@@ -76,7 +76,11 @@ data LispVal =	Atom String
 		| Float Double
 		| Ratio Rational
 		| Complex (Complex Double)
-                deriving (Eq)
+                | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
+                | Func {params :: [String], vararg :: (Maybe String),
+                         body :: [LispVal], closure :: Env}
+--                deriving (Eq)
+
 instance Show LispVal where show = showVal
 
 showVal :: LispVal -> String
@@ -141,6 +145,7 @@ parseAtom = do first <- letter <|> symbol
                         "#t" -> Bool True
                         "#f" -> Bool False
                         _    -> Atom atom
+
 
 parseNumber = do num <- parseDigital1 <|> parseDigital2 <|> parseHex <|> parseOct <|> parseBin
                  return $ num
