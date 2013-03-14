@@ -541,16 +541,19 @@ extractValue (Right val) = val
 
 --------begin REPL--------
 
-runRepl = until_ (== "quit") (readPrompt "Lisp>>> ") evalAndPrint
+runRepl = primitiveBindings >>= until_ (== "quit") (readPrompt "Lisp>>> ") . evalAndPrint
+
+runOne expr = primitiveBindings >>= flip evalAndPrint expr
 
 --REPL helper functions
 flushStr str = putStr str >> hFlush stdout
 
 readPrompt prompt = flushStr prompt >> getLine
 
-evalString expr = return $ extractValue $ trapError (liftM show $ readExpr expr >>= eval)
+evalString :: Env -> String -> IO String
+evalString env expr = runIOThrows $ liftM show $ (liftThrows $ readExpr expr) >>= eval env
 
-evalAndPrint expr = evalString expr >>= putStrLn
+evalAndPrint env expr = evalString env expr >>= putStrLn
 
 until_ pred prompt action = do
   result <- prompt
