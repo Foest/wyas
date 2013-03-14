@@ -7,16 +7,64 @@ import Data.Ratio
 import Data.Complex
 import Control.Monad.Error
 import System.IO
+import Data.IORef
 
 main = do args <- getArgs
           case length args of
             0 -> runRepl
-            1 -> evalAndPrint $ args !! 0
+            1 -> runOne $ args !! 0
             otherwise -> putStrLn "Program takes only 0 or 1 argument"
 
 readExpr input = case parse parseExpr "lisp" input of
 		Left err -> throwError $ Parser err
 		Right val -> return val
+
+-------------begin variables--------------
+type Env = IORef [(String, IORef LispVal)]
+
+nullEnv :: IO Env
+nullEnv = newIORef []
+
+type IOThrowsError = ErrorT LispError IO
+
+liftThrows :: ThrowsError a -> IOThrowsError a
+liftThrows (Left err) = throwError err
+liftThrows (Right val) = return val
+
+runIOThrows :: IOThrowsError String -> IO String
+runIOThrows action = runErrorT (trapError action) >>= return . extractValue
+
+isBound envRef var = readIORef envRef >>= return . maybe False (const True) .lookup var
+
+getVar :: Env -> String -> IOThrowsError LispVal
+getVar envRef var = do env <- liftIO $ readIORef envRef
+                       maybe (throwError $ UnboundVar "Getting an unbound variable" var)
+                             (liftIO . readIORef)
+                             (lookup var env)
+
+setVar envRef var value = do env <- liftIO $ readIORef envRef
+                             maybe (throwError $ UnboundVar " Setting an unbound variable" var)
+                                   (liftIO . (flip writeIORef value))
+                                   (lookup var env)
+                             return value
+
+defineVar envRef var value = do
+    alreadyDefined <- liftIO $ isBound envRef var
+    if alreadyDefined
+       then setVar envRef var value >> return value
+       else liftIO $ do
+          valueRef <- newIORef value
+          env <- readIORef envRef
+          writeIORef envRef ((var, valueRef) : env)
+          return value
+
+bindVars envRef bindings = readIORef envRef >>= extendEnv bindings >>= newIORef
+    where extendEnv bindings env = liftM (++env) (mapM addBinding bindings)
+          addBinding (var, value) = do ref <- newIORef value
+                                       return (var, ref)
+
+
+-------------end variables--------------
 
 data LispVal =	Atom String
 		| List [LispVal]
@@ -195,41 +243,45 @@ parseUnQuote = do
 
 --------begin evaluator--------
 
-eval :: LispVal -> ThrowsError LispVal
-eval val@(String _) = return val
-eval val@(Number _) = return val
-eval val@(Bool _) = return val
-eval (List [Atom "quote", val]) = return val
+eval :: Env -> LispVal -> IOThrowsError LispVal
+eval env val@(String _) = return val
+eval env val@(Number _) = return val
+eval env val@(Bool _) = return val
+eval env (Atom id) = getVar env id
+eval env (List [Atom "quote", val]) = return val
 
 --evaluation of if expression
-eval (List [Atom "if", pred, conseq, alt]) =
-    do result <- eval pred
+eval env (List [Atom "if", pred, conseq, alt]) =
+    do result <- eval env pred
        case result of
-         Bool False -> eval alt
-         Bool True -> eval conseq
+         Bool False -> eval env alt
+         Bool True -> eval env conseq
          _ -> throwError $ TypeMismatch "bool" pred
 
 --evaluation of case expression
-eval form@(List (Atom "case" : key : clauses)) =
+eval env form@(List (Atom "case" : key : clauses)) =
   if null clauses
   then throwError $ BadSpecialForm "no true clauses in case expression" form
   else case head clauses of
-    List (Atom "else" : exprs) -> mapM eval exprs >>= return . last
+    List (Atom "else" : exprs) -> mapM (eval env) exprs >>= return . last
     List ((List datums) : exprs) -> do
-      result <- eval key
+      result <- eval env key
       equality <- mapM (\x -> eqv [result, x]) datums
       if Bool True `elem` equality
-        then mapM eval exprs >>= return . last
-        else eval $ List (Atom "case" : key : tail clauses)
+        then mapM (eval env) exprs >>= return . last
+        else (eval env) $ List (Atom "case" : key : tail clauses)
     _ -> throwError $ BadSpecialForm "ill-formed case expression:" form
+-}
+
+
 
 --evaluation of cond expression
-eval form@(List (Atom "cond" : clauses)) =
+eval env form@(List (Atom "cond" : clauses)) =
   if null clauses
   then throwError $ BadSpecialForm "no true clause in cond expression:" form
   else case head clauses of
-    List [Atom "else", expr] -> eval expr
-    List [test, expr] -> eval $ List [Atom "if",
+    List [Atom "else", expr] -> eval env expr
+    List [test, expr] -> (eval env) $ List [Atom "if",
                                       test,
                                       expr,
                                       List (Atom "cond" : tail clauses)]
