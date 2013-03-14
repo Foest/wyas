@@ -379,6 +379,10 @@ primitives = [("+", numericBinop (+)),
               ("eqv?", eqv),
               ("equal?", equal)]
 
+primitiveBindings :: IO Env
+primitiveBindings = nullEnv >>= (flip bindVars $ map makePrimitiveFunc primitives)
+    where makePrimitiveFunc (var, func) = (var, PrimitiveFunc func)
+
 unaryOp f [v] = return $ f v
 unaryOp _ _ = throwError $ Default "unaryOp Error"
 
@@ -491,6 +495,12 @@ unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
                 unpacked2 <- unpacker arg2
                 return $ unpacked1 == unpacked2
         `catchError` (const $ return False)
+
+makeFunc varargs env params body = return $ Func (map showVal params) varargs body env
+
+makeNormalFunc = makeFunc Nothing
+
+makeVarargs = makeFunc . Just . showVal
 
 --------end evaluator--------
 
