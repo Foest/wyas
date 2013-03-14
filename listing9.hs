@@ -269,6 +269,33 @@ eval env (List [Atom "if", pred, conseq, alt]) =
          Bool True -> eval env conseq
          _ -> throwError $ TypeMismatch "bool" pred
 
+eval env (List [Atom "set!", Atom var, form]) =
+    eval env form >>= setVar env var
+
+eval env (List [Atom "define", Atom var, form]) =
+    eval env form >>= defineVar env var
+
+eval env (List (Atom "define" : List (Atom var : params) : body)) =
+    makeNormalFunc env params body >>= defineVar env var
+
+eval env (List (Atom "define" : DottedList (Atom var : params) varargs : body)) =
+    makeVarargs varargs env params body >>= defineVar env var
+
+eval env (List (Atom "lambda" : List params : body)) =
+    makeNormalFunc env params body
+
+eval env (List (Atom "lambda" : DottedList params varargs : body)) =
+    makeVarargs varargs env params body
+
+eval env (List (Atom "lambda" : varargs@(Atom _) : body)) =
+    makeVarargs varargs env [] body
+
+eval env (List (function : args)) = do
+    func <- eval env function
+    argVals <- mapM (eval env) args
+    apply func argVals
+
+{-
 --evaluation of case expression
 eval env form@(List (Atom "case" : key : clauses)) =
   if null clauses
@@ -297,8 +324,6 @@ eval env form@(List (Atom "cond" : clauses)) =
                                       expr,
                                       List (Atom "cond" : tail clauses)]
     _ -> throwError $ BadSpecialForm "ill-formed cond expression:" form
-eval (List (Atom func : args)) = mapM eval args >>= apply func
-eval badForm = throwError $ BadSpecialForm "Unrecognized special form " badForm
 
 apply :: String -> [LispVal] -> ThrowsError LispVal
 apply func args = maybe (throwError $ NotFunction "Unrecognized primitive function args " func)
