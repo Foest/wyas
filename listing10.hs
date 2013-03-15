@@ -15,9 +15,13 @@ main = do args <- getArgs
             1 -> runOne $ args !! 0
             otherwise -> putStrLn "Program takes only 0 or 1 argument"
 
-readExpr input = case parse parseExpr "lisp" input of
-		Left err -> throwError $ Parser err
-		Right val -> return val
+readExpr = readOrThrow parseExpr
+
+readExprList = readOrThrow (endBy parseExpr spaces)
+
+readOrThrow parser input = case parse parser "lisp" input of
+    Left err -> throwError $ Parser err
+    Right val -> return val
 
 -------------begin variables--------------
 type Env = IORef [(String, IORef LispVal)]
