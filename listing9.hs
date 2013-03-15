@@ -107,6 +107,8 @@ showVal (Func {params = args, vararg = varargs, body = body, closure = env}) =
      (case varargs of
         Nothing -> ""
         Just arg -> " . " ++ arg) ++ ") ...)"
+showVal (Port _) = "<IO port>"
+showVal (IOFunc _) = "<IO primitive>"
 
 unwordsList = unwords . map showVal
 
