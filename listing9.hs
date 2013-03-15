@@ -79,6 +79,8 @@ data LispVal =	Atom String
                 | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
                 | Func {params :: [String], vararg :: (Maybe String),
                          body :: [LispVal], closure :: Env}
+                | IOFunc ([LispVal] -> IOThrowsError LispVal)
+                | Port Handle
 --                deriving (Eq)
 
 instance Show LispVal where show = showVal
