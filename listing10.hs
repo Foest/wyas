@@ -333,10 +333,10 @@ eval env form@(List (Atom "cond" : clauses)) =
                                       List (Atom "cond" : tail clauses)]
     _ -> throwError $ BadSpecialForm "ill-formed cond expression:" form
 
---eval env (List (Atom func : args)) = mapM (eval env) args >>= liftThrows . apply func
+eval env (List [Atom "load", String filename]) =
+    load filename >>= liftM last . mapM (eval env)
+
 eval env badForm = throwError $ BadSpecialForm "Unrecognized special form " badForm
-
-
 
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc func) args = liftThrows $ func args
