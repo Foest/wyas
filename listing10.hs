@@ -586,7 +586,10 @@ extractValue (Right val) = val
 
 runRepl = primitiveBindings >>= until_ (== "quit") (readPrompt "Lisp>>> ") . evalAndPrint
 
-runOne expr = primitiveBindings >>= flip evalAndPrint expr
+runOne args = do
+    env <- primitiveBindings >>= flip bindVars [("args", List $ map String $ drop 1 args)]
+    (runIOThrows $ liftM show $ eval env (List [Atom "load", String (args !! 0)]))
+         >>= hPutStrLn stderr
 
 --REPL helper functions
 flushStr str = putStr str >> hFlush stdout
