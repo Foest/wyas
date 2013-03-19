@@ -29,3 +29,20 @@
 
 (define fold foldl)
 (define reduce fold)
+
+(define (unfold func init pred)
+  (if (pred init)
+      (cons init '())
+      (cons init (unfold func (func init) pred))))
+
+(define (sum . lst)         (fold + 0 lst))
+(define (product . lst)     (fold * 1 lst))
+(define (and . lst)         (fold && #t lst))
+(define (or . lst)          (fold || #f lst))
+
+(define (max first . rest)  (fold (lambda (old new) (if (> old new) old new)) first rest))
+(define (max first . rest)  (fold (lambda (old new) (if (< old new) old new)) first rest))
+
+(define (length lst)        (fold (lambda (x y) (+ x 1)) 0 lst))
+
+(define (reverse lst)       (fold (flip cons) '() lst))
