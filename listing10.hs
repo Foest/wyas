@@ -295,11 +295,6 @@ eval env (List (Atom "lambda" : DottedList params varargs : body)) =
 eval env (List (Atom "lambda" : varargs@(Atom _) : body)) =
     makeVarargs varargs env [] body
 
-eval env (List (function : args)) = do
-    func <- eval env function
-    argVals <- mapM (eval env) args
-    apply func argVals
-
 {-
 --evaluation of case expression
 eval env form@(List (Atom "case" : key : clauses)) =
@@ -332,6 +327,11 @@ eval env form@(List (Atom "cond" : clauses)) =
 
 eval env (List [Atom "load", String filename]) =
     load filename >>= liftM last . mapM (eval env)
+
+eval env (List (function : args)) = do
+    func <- eval env function
+    argVals <- mapM (eval env) args
+    apply func argVals
 
 eval env badForm = throwError $ BadSpecialForm "Unrecognized special form " badForm
 
